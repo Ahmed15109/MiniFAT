@@ -4,7 +4,7 @@ using System.IO;
 
 namespace MiniFAT
 {
-    public sealed class FileSystem   // بيجمع كل ال layers هنا 
+    public sealed class FileSystem  
     {
         private readonly VirtualDisk _disk; 
         private readonly SuperblockManager _super;
@@ -15,22 +15,22 @@ namespace MiniFAT
 
         public FileSystem(VirtualDisk disk, SuperblockManager super, FatTableManager fat, DirectoryManager dir)
         {
-            _disk = disk;       //قراءة/كتابة
-            _super = super;    //إدارة كلاستر 0 
-            _fat = fat;        // بتتعامل مع الكلاستر تخصيص تعديل 
-            _dir = dir;       // اداره الانتري جوا الديركتوري 
+            _disk = disk;      
+            _super = super;    
+            _fat = fat;         
+            _dir = dir;      
         }
 
         public void Initialize(bool isNewDisk)
         {
-            _fat.LoadFatFromDisk();   // بحمل ال fat من الديسك
+            _fat.LoadFatFromDisk();
 
             if (isNewDisk || IsFatLooksEmpty())
             {
-                _super.InitializeSuperblock();  // بصفر السوبرلوك 
+                _super.InitializeSuperblock();  
 
                 for (int i = 0; i <= FsConstants.FAT_END_CLUSTER; i++)
-                    _fat.Set(i, -1); //  بحجز -1 في ال FAt
+                    _fat.Set(i, -1); 
 
                 _fat.Set(FsConstants.ROOT_DIR_FIRST_CLUSTER, -1);  
 
@@ -47,8 +47,7 @@ namespace MiniFAT
                     if (_fat.Get(i) != -1) { _fat.Set(i, -1); changed = true; }
                 }
 
-                // بحجز 5 كلاستر ل root directory
-                // ال fat == linked list
+              
                 if (_fat.Get(FsConstants.ROOT_DIR_FIRST_CLUSTER) != -1)
                 {
                     _fat.Set(FsConstants.ROOT_DIR_FIRST_CLUSTER, -1);
@@ -69,7 +68,6 @@ namespace MiniFAT
         }
 
         public DirectoryEntry? GetEntry(string name) => _dir.FindEntry(CurrentDirCluster, name);
-        //يجيب metadata 
 
         public List<int> GetClusterChain(string name)
         {
@@ -81,7 +79,6 @@ namespace MiniFAT
                 return new List<int>();
 
             return _fat.FollowChain(entry.FirstCluster);
-            //يرجع سلسلة تخزين الملف عشان أمر fat في الـ shell)
         }
 
         public DirectoryEntry[] ListDir() => _dir.ReadDirectory(CurrentDirCluster).ToArray();
@@ -89,11 +86,9 @@ namespace MiniFAT
 
 
         public void CreateFile(string filename)
-            // بيتاكد ان الاسم مش موجود 
         {
             if (_dir.FindEntry(CurrentDirCluster, filename) != null)
                 throw new InvalidOperationException("File already exists.");
-            // و يعمل DirectoryEntry للملف ويضيفه للدايركتوري 
             var entry = new DirectoryEntry
             {
                 Name83 = DirectoryNaming.FormatNameTo8Dot3(filename),
@@ -112,19 +107,15 @@ namespace MiniFAT
         {
             content ??= Array.Empty<byte>();
 
-            // حجز Clusters في الديسك عن طريق FAT وتكتب الداتا فيهم
 
             var entry = _dir.FindEntry(CurrentDirCluster, filename);
             if (entry == null) throw new FileNotFoundException("File not found.");
             if (entry.IsDirectory) throw new InvalidOperationException("Cannot write to a directory.");
-            //تحدّث الميتاداتا جوه DirectoryEntry
             if (entry.FirstCluster != 0)
                 _fat.FreeChain(entry.FirstCluster);
 
             int needed = content.Length == 0 ? 0 : (int)Math.Ceiling(content.Length / (double)FsConstants.CLUSTER_SIZE);
             int start = needed == 0 ? 0 : _fat.AllocateChain(needed);
-            // بنحسب محتاج كام كلاستر 
-            //كلاستر =1024 بايت 
 
 
             if (needed > 0)

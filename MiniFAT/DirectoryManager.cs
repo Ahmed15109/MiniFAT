@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace MiniFAT  //  مسؤول عن إدارة محتوى الديركتوري
+namespace MiniFAT  
 {
     public sealed class DirectoryManager
     {
-        private readonly VirtualDisk _disk;  // يقرا ويكتب الكلاستر 
-        private readonly FatTableManager _fat; // عشان يعرف سلسلة الـ clusters بتاعة الديركتوري 
-                                               //  لأن الديركتوري ممكن يمتد على أكتر من cluster 
+        private readonly VirtualDisk _disk;  
+        private readonly FatTableManager _fat;  
+                                               
         public DirectoryManager(VirtualDisk disk, FatTableManager fat) 
                                                                       
         {
@@ -21,15 +21,14 @@ namespace MiniFAT  //  مسؤول عن إدارة محتوى الديركتور�
             var entries = new List<DirectoryEntry>();
             if (startCluster <= 0) return entries;
 
-            var chain = _fat.FollowChain(startCluster); //باخد startCluster بتاع الديركتوري
-            // و بجيب سلسله الكلاستر بتاعته من ال FollowChain 
+            var chain = _fat.FollowChain(startCluster); 
+            
             foreach (var c in chain)
             {
                 byte[] cl = _disk.ReadCluster(c);
                 for (int off = 0; off < FsConstants.CLUSTER_SIZE; off += DirectoryEntry.SIZE)
                 {
-                    var e = DirectoryEntry.Deserialize32(cl, off); // بقسمه كل chunk =32 bytes
-                    // وبعدين بحول ال بايتس ل دايركت انتري 
+                    var e = DirectoryEntry.Deserialize32(cl, off); 
                     if (e != null) entries.Add(e);
                 }
             }
@@ -37,7 +36,6 @@ namespace MiniFAT  //  مسؤول عن إدارة محتوى الديركتور�
         }
 
 
-        //بسيرش عن فولدر جوا ال ديركتوري 
         public DirectoryEntry? FindEntry(int dirStartCluster, string name)
         {
             string target = DirectoryNaming.FormatNameTo8Dot3(name);
@@ -45,21 +43,16 @@ namespace MiniFAT  //  مسؤول عن إدارة محتوى الديركتور�
                 if (string.Equals(e.Name83, target, StringComparison.OrdinalIgnoreCase))
                     return e;
             return null;
-            // بحول الاسم لصيغه char8.3
-            //  عشان اقدر اقارن بينهم لان التخزين ف الديركتوري بنفس الصيغه 
-            // FAT بتخزن Upppercase
 
         }
 
 
 
 
-        // اضافه انتري 
         public void AddEntry(int dirStartCluster, DirectoryEntry newEntry)
         {
             var chain = _fat.FollowChain(dirStartCluster);
             if (chain.Count == 0) throw new InvalidOperationException("Directory chain is empty/broken.");
-            // بدور علي مكان فاضي ف الديركتوري لو لقي بمتبها ف نفس الكلاستر 
 
             foreach (var c in chain)
             {
@@ -75,10 +68,8 @@ namespace MiniFAT  //  مسؤول عن إدارة محتوى الديركتور�
                     }
                 }
             }
-            int newCluster = _fat.AllocateChain(1);  // لو الديركتوري مليان بوسعه عن طريق اني بحجز كلاستر جديد 
-
+            int newCluster = _fat.AllocateChain(1);  
             int last = chain[^1];
-            // و اربط اخر كلاستر ف ال chain ب ال نيوكلاستر 
             _fat.Set(last, newCluster);
             _fat.Set(newCluster, -1);
 
@@ -89,13 +80,11 @@ namespace MiniFAT  //  مسؤول عن إدارة محتوى الديركتور�
         }
 
 
-        // التعديل ف انتري 
         public void UpdateEntryInPlace(int dirStartCluster, DirectoryEntry updated)
         {
             var chain = _fat.FollowChain(dirStartCluster);
             foreach (var c in chain)
             {
-                // بدور علي نفس الانتري بالاسم و لما بلاقيها بكتب الابديت ف نفس مكانها 
                 byte[] cl = _disk.ReadCluster(c);
                 for (int off = 0; off < FsConstants.CLUSTER_SIZE; off += DirectoryEntry.SIZE)
                 {
@@ -113,12 +102,10 @@ namespace MiniFAT  //  مسؤول عن إدارة محتوى الديركتور�
         }
 
 
-        // الحذف 
         public DirectoryEntry RemoveEntry(int dirStartCluster, string name)
         {
             string target = DirectoryNaming.FormatNameTo8Dot3(name);
             var chain = _fat.FollowChain(dirStartCluster);
-             //بدور ع الانتري بالاسم 
             foreach (var c in chain)
             {
                 byte[] cl = _disk.ReadCluster(c);
@@ -127,12 +114,12 @@ namespace MiniFAT  //  مسؤول عن إدارة محتوى الديركتور�
                     var e = DirectoryEntry.Deserialize32(cl, off);
                     if (e != null && string.Equals(e.Name83, target, StringComparison.OrdinalIgnoreCase))
                     {
-                        cl[off] = 0x00;  // لما بلاقيها بمسح الانتري من الديركتوري 
+                        cl[off] = 0x00;  
                         _disk.WriteCluster(c, cl);
                         return e;
                     }
                 }
-            }  // بشيل ال metadata فقط مش بيمسح بيانات الملف 
+            }  
 
             throw new InvalidOperationException("Entry not found.");
         }
